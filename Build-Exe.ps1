@@ -11,7 +11,7 @@
 
 param(
     [string]$IconFile,
-    [string]$Version = '1.0.0.0'
+    [string]$Version            # leer = aus $AppVersion in AD-Benutzer-Kopieren.ps1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,6 +21,14 @@ $out     = Join-Path $PSScriptRoot 'AD-Benutzer-Kopieren.exe'
 $modRoot = Join-Path $PSScriptRoot '_modules'
 
 if (-not (Test-Path $src)) { throw "Skript nicht gefunden: $src" }
+
+# --- Version bestimmen ---
+if (-not $Version) {
+    $m = Select-String -Path $src -Pattern '^\$AppVersion\s*=\s*''([0-9.]+)''' | Select-Object -First 1
+    $Version = if ($m) { $m.Matches[0].Groups[1].Value } else { '1.0.0' }
+}
+while (($Version -split '\.').Count -lt 4) { $Version += '.0' }
+Write-Host "Version: $Version" -ForegroundColor Cyan
 
 # --- PS2EXE in den lokalen Ordner _modules laden (einmalig) ---
 $psd1 = Get-ChildItem -Path (Join-Path $modRoot 'ps2exe') -Filter 'ps2exe.psd1' -Recurse -ErrorAction SilentlyContinue |

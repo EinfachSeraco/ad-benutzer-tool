@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WiX v5 source for the AD-Benutzer-Tool MSI package.
+  Built by Build-Msi.ps1:  wix build AD-Benutzer-Tool.wxs -arch x64 -d Version=x.y.z -d ExePath=...
+
+  Public properties:
+    DESKTOPSHORTCUT=1   also create a desktop shortcut for all users
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="AD-Benutzer-Tool"
+           Manufacturer="IT"
+           Version="$(var.Version)"
+           UpgradeCode="8E3B5C2A-6F41-4D7B-9A0E-2C7D1F5B9E43"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.exe" SourceFile="$(var.ExePath)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.exe" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="DESKTOPSHORTCUT" Value="0" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="AD-Benutzer-Tool">
+        <Component Id="MainExecutable">
+          <File Id="MainExe" Source="$(var.ExePath)" Name="AD-Benutzer-Kopieren.exe" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuLnk"
+                  Name="AD-Benutzer anlegen"
+                  Description="AD-Benutzer anhand Vorlage anlegen"
+                  Target="[INSTALLFOLDER]AD-Benutzer-Kopieren.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM" Key="Software\AD-Benutzer-Tool" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Condition="DESKTOPSHORTCUT=&quot;1&quot;">
+        <Shortcut Id="DesktopLnk"
+                  Name="AD-Benutzer anlegen"
+                  Description="AD-Benutzer anhand Vorlage anlegen"
+                  Target="[INSTALLFOLDER]AD-Benutzer-Kopieren.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM" Key="Software\AD-Benutzer-Tool" Name="DesktopShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="AD-Benutzer-Tool" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+  </Package>
+</Wix>
