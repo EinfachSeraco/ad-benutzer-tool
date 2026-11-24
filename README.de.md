@@ -206,14 +206,17 @@ Der Workflow `.github/workflows/build.yml` läuft bei jedem Push und Pull Reques
 
 1. Erhöhe `$AppVersion` in `AD-Benutzer-Kopieren.ps1`, zum Beispiel auf `'1.2.0'`.
 2. Trage die Änderungen in `CHANGELOG.md` ein.
-3. Committe, dann erstelle und pushe ein passendes Tag:
+3. Committe und pushe nach `main`.
+4. Erstelle das Release auf **einem** dieser Wege:
+   - **Im Browser, ohne Git:** Öffne **Actions → Build → Run workflow**, wähle den Branch `main`, setze das Häkchen bei **release** und klicke auf **Run workflow**. Das Tag `v<AppVersion>` wird automatisch angelegt.
+   - **Mit Git:**
+     ```powershell
+     git tag v1.2.0
+     git push origin v1.2.0
+     ```
+     Das Tag muss zu `$AppVersion` passen, sonst bricht der Build ab.
 
-```powershell
-git tag v1.2.0
-git push origin v1.2.0
-```
-
-Der Workflow erstellt dann ein GitHub-Release mit EXE, MSI und ZIP. Das Tag muss zu `$AppVersion` passen, sonst bricht der Build ab.
+Nach ein paar Minuten erscheint das Release mit EXE, MSI und ZIP unter **Releases**. Gibt es diese Version schon als Release, bricht der Build mit einer Meldung ab. Erhöhe dann zuerst `$AppVersion`.
 
 ## Aufbau des Repositorys
 

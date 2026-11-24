@@ -1,5 +1,7 @@
 # Builds the EXE and MSI on Windows for every push and pull request.
-# Pushing a tag like v1.1.0 additionally creates a GitHub release with the files.
+# A GitHub release with the files is created when
+#   - a tag like v1.1.0 is pushed, or
+#   - the workflow is started manually (Actions -> Build -> Run workflow) with "release" ticked.
 name: Build
 
 on:
@@ -8,6 +10,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a GitHub release (tag v<AppVersion>) / GitHub-Release erstellen'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -89,12 +96,19 @@ jobs:
             AD-Benutzer-Tool-${{ steps.version.outputs.version }}.zip
 
       - name: Create release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $v = '${{ steps.version.outputs.version }}'
-          gh release create '${{ github.ref_name }}' `
+          $v   = '${{ steps.version.outputs.version }}'
+          $tag = "v$v"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "::error::Release $tag already exists. Increase `$AppVersion first."
+            exit 1
+          }
+          # Creates the tag on the built commit if it does not exist yet
+          gh release create $tag `
             AD-Benutzer-Kopieren.exe "AD-Benutzer-Tool-$v.msi" "AD-Benutzer-Tool-$v.zip" `
-            --title "AD-Benutzer-Tool $v" --generate-notes
+            --target '${{ github.sha }}' --title "AD-Benutzer-Tool $v" --generate-notes
