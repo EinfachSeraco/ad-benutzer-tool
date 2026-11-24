@@ -8,6 +8,7 @@
 #   (Praefix optional manuell festlegbar, Suffix aus dem AD auswaehlbar)
 # - Gruppenmitgliedschaften (Berechtigungen) der Vorlage werden uebernommen
 # - Optional: Attribute wie Abteilung, Firma, Buero, Manager usw. uebernehmen
+# - E-Mail-Adresse (standardmaessig = UPN) und Kennwort-Generator
 #
 # .NOTES
 # Voraussetzung: RSAT / ActiveDirectory-PowerShell-Modul
@@ -18,6 +19,9 @@
 
 # Umlaute als Zeichencodes, damit die Datei reines ASCII bleibt
 $Uae = [char]0x00E4; $Uoe = [char]0x00F6; $Uue = [char]0x00FC; $Usz = [char]0x00DF
+
+# Versionsnummer (wird auch von Build-Exe.ps1, Build-Msi.ps1 und dem GitHub-Build verwendet)
+$AppVersion = '1.1.0'
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -122,13 +126,43 @@ function Escape-Filter {
     return $Value -replace "'", "''"
 }
 
+function New-RandomPassword {
+    # Zufallskennwort mit mind. je einem Gross-, Kleinbuchstaben, Ziffer und Sonderzeichen.
+    # Leicht verwechselbare Zeichen (0/O, 1/l/I) werden nicht verwendet.
+    param([int]$Length = 16)
+    $upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+    $lower   = 'abcdefghijkmnopqrstuvwxyz'
+    $digit   = '23456789'
+    $special = '!#$%&*+-=?@'
+    $all     = $upper + $lower + $digit + $special
+
+    $rng   = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $bytes = New-Object byte[] 4
+    function Get-RandIndex([int]$Max) {
+        $rng.GetBytes($bytes)
+        return [int]([BitConverter]::ToUInt32($bytes, 0) % [uint32]$Max)
+    }
+
+    $chars = New-Object System.Collections.Generic.List[char]
+    foreach ($set in $upper, $lower, $digit, $special) { $chars.Add($set[(Get-RandIndex $set.Length)]) }
+    while ($chars.Count -lt $Length) { $chars.Add($all[(Get-RandIndex $all.Length)]) }
+
+    # Mischen (Fisher-Yates)
+    for ($i = $chars.Count - 1; $i -gt 0; $i--) {
+        $j = Get-RandIndex ($i + 1)
+        $tmp = $chars[$i]; $chars[$i] = $chars[$j]; $chars[$j] = $tmp
+    }
+    $rng.Dispose()
+    return -join $chars
+}
+
 # ---------------------------------------------------------------------------
 # Formular aufbauen
 # ---------------------------------------------------------------------------
 $fontBold = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text            = 'AD-Benutzer anhand Vorlage anlegen'
+$form.Text            = "AD-Benutzer anhand Vorlage anlegen - v$AppVersion"
 $form.ClientSize      = New-Object System.Drawing.Size(990, 755)
 $form.StartPosition   = 'CenterScreen'
 $form.FormBorderStyle = 'FixedSingle'
@@ -245,30 +279,45 @@ $cmbSuffix.DropDownStyle = 'DropDownList'
 $txtSam     = New-TextBox 145 (RowY 5) 325
 $txtSam.MaxLength = 20
 $txtDisplay = New-TextBox 145 (RowY 6) 325
-$txtOU      = New-TextBox 145 (RowY 7) 325
 
-$txtPw1 = New-TextBox 145 (RowY 8) 325;  $txtPw1.UseSystemPasswordChar = $true
-$txtPw2 = New-TextBox 145 (RowY 9) 325;  $txtPw2.UseSystemPasswordChar = $true
+$txtMail = New-TextBox 145 (RowY 7) 235
+$txtMail.ReadOnly = $true
+$chkMailSync = New-Object System.Windows.Forms.CheckBox
+$chkMailSync.Text = '= UPN'
+$chkMailSync.Location = New-Object System.Drawing.Point(388, ((RowY 7) + 1))
+$chkMailSync.Size = New-Object System.Drawing.Size(85, 22)
+$chkMailSync.Checked = $true
+
+$txtOU      = New-TextBox 145 (RowY 8) 325
+
+$txtPw1 = New-TextBox 145 (RowY 9) 175;   $txtPw1.UseSystemPasswordChar = $true
+$txtPw2 = New-TextBox 145 (RowY 10) 175;  $txtPw2.UseSystemPasswordChar = $true
+$btnGenPw  = New-Button 'Generieren' 325 ((RowY 9) - 1) 75 25
+$btnCopyPw = New-Button 'Kopieren' 405 ((RowY 9) - 1) 65 25
+$chkShowPw = New-Object System.Windows.Forms.CheckBox
+$chkShowPw.Text = 'Kennwort anzeigen'
+$chkShowPw.Location = New-Object System.Drawing.Point(325, ((RowY 10) + 1))
+$chkShowPw.Size = New-Object System.Drawing.Size(145, 22)
 
 $chkChangePw = New-Object System.Windows.Forms.CheckBox
 $chkChangePw.Text = "Kennwort bei n${Uae}chster Anmeldung ${Uae}ndern"
-$chkChangePw.Location = New-Object System.Drawing.Point(145, (RowY 10))
+$chkChangePw.Location = New-Object System.Drawing.Point(145, (RowY 11))
 $chkChangePw.Size = New-Object System.Drawing.Size(325, 22)
 $chkChangePw.Checked = $true
 
 $chkEnabled = New-Object System.Windows.Forms.CheckBox
 $chkEnabled.Text = 'Konto aktivieren'
-$chkEnabled.Location = New-Object System.Drawing.Point(145, ((RowY 10) + 24))
+$chkEnabled.Location = New-Object System.Drawing.Point(145, ((RowY 11) + 24))
 $chkEnabled.Size = New-Object System.Drawing.Size(325, 22)
 $chkEnabled.Checked = $true
 
 $chkCopyAttr = New-Object System.Windows.Forms.CheckBox
 $chkCopyAttr.Text = "Attribute ${Uue}bernehmen (Abteilung, Firma, B${Uue}ro, Manager ...)"
-$chkCopyAttr.Location = New-Object System.Drawing.Point(145, ((RowY 10) + 48))
+$chkCopyAttr.Location = New-Object System.Drawing.Point(145, ((RowY 11) + 48))
 $chkCopyAttr.Size = New-Object System.Drawing.Size(335, 22)
 $chkCopyAttr.Checked = $true
 
-$lblPreview = New-Label 'UPN: -' 10 ((RowY 10) + 80) 465 22
+$lblPreview = New-Label 'UPN: -' 10 ((RowY 11) + 80) 465 22
 $lblPreview.Font = $fontBold
 
 $grpNew.Controls.AddRange(@(
@@ -279,9 +328,10 @@ $grpNew.Controls.AddRange(@(
     (New-Label 'UPN:'                10 ((RowY 4)+3)), $txtUpnPrefix, $lblAt, $cmbSuffix,
     (New-Label 'Anmeldename (SAM):'  10 ((RowY 5)+3)), $txtSam,
     (New-Label 'Anzeigename:'        10 ((RowY 6)+3)), $txtDisplay,
-    (New-Label 'Ziel-OU:'            10 ((RowY 7)+3)), $txtOU,
-    (New-Label 'Kennwort:'           10 ((RowY 8)+3)), $txtPw1,
-    (New-Label "Kennwort best${Uae}tigen:" 10 ((RowY 9)+3)), $txtPw2,
+    (New-Label 'E-Mail:'             10 ((RowY 7)+3)), $txtMail, $chkMailSync,
+    (New-Label 'Ziel-OU:'            10 ((RowY 8)+3)), $txtOU,
+    (New-Label 'Kennwort:'           10 ((RowY 9)+3)), $txtPw1, $btnGenPw, $btnCopyPw,
+    (New-Label "Kennwort best${Uae}tigen:" 10 ((RowY 10)+3)), $txtPw2, $chkShowPw,
     $chkChangePw, $chkEnabled, $chkCopyAttr, $lblPreview
 ))
 
@@ -310,6 +360,9 @@ function Update-Preview {
         $lblPreview.Text = "UPN: $($txtUpnPrefix.Text)@$suffix"
     } else {
         $lblPreview.Text = 'UPN: -'
+    }
+    if ($chkMailSync.Checked) {
+        $txtMail.Text = if ($txtUpnPrefix.Text -and $suffix) { "$($txtUpnPrefix.Text)@$suffix" } else { '' }
     }
 }
 
@@ -477,6 +530,8 @@ function New-UserFromTemplate {
     if (-not $txtOU.Text.Trim())                  { $errors += 'Ziel-OU fehlt.' }
     if (-not $txtPw1.Text)                        { $errors += 'Kennwort fehlt.' }
     if ($txtPw1.Text -ne $txtPw2.Text)            { $errors += "Kennw${Uoe}rter stimmen nicht ${Uue}berein." }
+    $mail = $txtMail.Text.Trim()
+    if ($mail -and $mail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') { $errors += "E-Mail-Adresse ist ung${Uue}ltig." }
 
     if ($errors.Count -gt 0) {
         [System.Windows.Forms.MessageBox]::Show(($errors -join "`r`n"), "Eingaben pr${Uue}fen", 'OK', 'Warning') | Out-Null
@@ -495,6 +550,9 @@ function New-UserFromTemplate {
         }
         if (Get-ADUser -Server $dc -Filter "UserPrincipalName -eq '$(Escape-Filter $upn)'" -ErrorAction Stop) {
             [System.Windows.Forms.MessageBox]::Show("Der UPN '$upn' existiert bereits.", 'Konflikt', 'OK', 'Warning') | Out-Null; return
+        }
+        if ($mail -and (Get-ADObject -Server $dc -Filter "mail -eq '$(Escape-Filter $mail)'" -ErrorAction Stop)) {
+            [System.Windows.Forms.MessageBox]::Show("Die E-Mail-Adresse '$mail' wird bereits verwendet.", 'Konflikt', 'OK', 'Warning') | Out-Null; return
         }
         if (Get-ADObject -Server $dc -SearchBase $ou -SearchScope OneLevel -Filter "Name -eq '$(Escape-Filter $display)'" -ErrorAction Stop) {
             [System.Windows.Forms.MessageBox]::Show("In der OU existiert bereits ein Objekt mit dem Namen '$display'.`r`nBitte Anzeigename anpassen.", 'Konflikt', 'OK', 'Warning') | Out-Null; return
@@ -516,6 +574,7 @@ Name:          $display
 Vorname:       $($txtFirst.Text.Trim())
 Nachname:      $($txtLast.Text.Trim())
 UPN:           $upn
+E-Mail:        $(if ($mail) { $mail } else { '-' })
 Anmeldename:   $sam
 OU:            $ou
 Vorlage:       $($tpl.SamAccountName)
@@ -544,6 +603,8 @@ Fortfahren?
             PassThru              = $true
             ErrorAction           = 'Stop'
         }
+
+        if ($mail) { $params.EmailAddress = $mail }
 
         if ($chkCopyAttr.Checked) {
             $tplSam = [regex]::Escape($tpl.SamAccountName)
@@ -584,6 +645,8 @@ Fortfahren?
         # Felder fuer naechsten Benutzer leeren (Vorlage bleibt erhalten)
         $txtFirst.Text = ''; $txtLast.Text = ''; $txtPw1.Text = ''; $txtPw2.Text = ''
         $chkManualUpn.Checked = $false
+        $chkMailSync.Checked = $true
+        $chkShowPw.Checked = $false
         $txtFirst.Focus()
     } catch {
         Write-Log "Anlegen fehlgeschlagen: $($_.Exception.Message)" 'FEHLER'
@@ -616,6 +679,28 @@ $txtUpnPrefix.Add_TextChanged({
     Update-Preview
 })
 $cmbSuffix.Add_SelectedIndexChanged({ Update-Preview })
+
+$chkMailSync.Add_CheckedChanged({
+    $txtMail.ReadOnly = $chkMailSync.Checked
+    Update-Preview
+})
+
+$btnGenPw.Add_Click({
+    $pw = New-RandomPassword 16
+    $txtPw1.Text = $pw
+    $txtPw2.Text = $pw
+    Write-Log 'Zufallskennwort erzeugt (16 Zeichen).' 'INFO'
+})
+$btnCopyPw.Add_Click({
+    if ($txtPw1.Text) {
+        [System.Windows.Forms.Clipboard]::SetText($txtPw1.Text)
+        Write-Log 'Kennwort in die Zwischenablage kopiert.' 'INFO'
+    }
+})
+$chkShowPw.Add_CheckedChanged({
+    $txtPw1.UseSystemPasswordChar = -not $chkShowPw.Checked
+    $txtPw2.UseSystemPasswordChar = -not $chkShowPw.Checked
+})
 
 $btnAll.Add_Click({  for ($i = 0; $i -lt $clbGroups.Items.Count; $i++) { $clbGroups.SetItemChecked($i, $true) } })
 $btnNone.Add_Click({ for ($i = 0; $i -lt $clbGroups.Items.Count; $i++) { $clbGroups.SetItemChecked($i, $false) } })

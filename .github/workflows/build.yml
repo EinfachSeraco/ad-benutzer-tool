@@ -1,0 +1,100 @@
+# Builds the EXE and MSI on Windows for every push and pull request.
+# Pushing a tag like v1.1.0 additionally creates a GitHub release with the files.
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: PowerShell syntax check
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Path . -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+            foreach ($e in $errors) {
+              $failed = $true
+              Write-Host "::error file=$($_.Name),line=$($e.Extent.StartLineNumber)::$($e.Message)"
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host 'No syntax errors.'
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $m = Select-String -Path AD-Benutzer-Kopieren.ps1 -Pattern '^\$AppVersion\s*=\s*''([0-9.]+)''' | Select-Object -First 1
+          if (-not $m) { throw '$AppVersion not found in AD-Benutzer-Kopieren.ps1' }
+          $v = $m.Matches[0].Groups[1].Value
+          Write-Host "Version: $v"
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Check tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_name }}' -ne 'v${{ steps.version.outputs.version }}') {
+            Write-Host "::error::Tag ${{ github.ref_name }} does not match `$AppVersion ${{ steps.version.outputs.version }}"
+            exit 1
+          }
+
+      # PS2EXE is sometimes flagged as a false positive. Exclude only the build folder on this
+      # throw-away CI runner so the build is not interrupted.
+      - name: Defender exclusion for build folder
+        continue-on-error: true
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE
+
+      - name: Build EXE
+        shell: powershell
+        run: .\Build-Exe.ps1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build MSI
+        shell: powershell
+        run: .\Build-Msi.ps1
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Force -DestinationPath "AD-Benutzer-Tool-${{ steps.version.outputs.version }}.zip" -Path `
+            AD-Benutzer-Kopieren.exe, AD-Benutzer-Kopieren.ps1, Install.ps1, README.md, README.de.md, CHANGELOG.md
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AD-Benutzer-Tool-${{ steps.version.outputs.version }}
+          path: |
+            AD-Benutzer-Kopieren.exe
+            AD-Benutzer-Tool-${{ steps.version.outputs.version }}.msi
+            AD-Benutzer-Tool-${{ steps.version.outputs.version }}.zip
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          gh release create '${{ github.ref_name }}' `
+            AD-Benutzer-Kopieren.exe "AD-Benutzer-Tool-$v.msi" "AD-Benutzer-Tool-$v.zip" `
+            --title "AD-Benutzer-Tool $v" --generate-notes

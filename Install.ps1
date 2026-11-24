@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 $appName     = 'AD-Benutzer-Kopieren'
 $displayName = 'AD-Benutzer anhand Vorlage anlegen'
 $exeName     = 'AD-Benutzer-Kopieren.exe'
-$version     = '1.0.0'
+$version     = '1.0.0'       # wird bei der Installation aus der EXE gelesen
 $installDir  = Join-Path $env:ProgramFiles $appName
 $startMenu   = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\$displayName.lnk"
 $desktopLnk  = Join-Path $env:PUBLIC "Desktop\$displayName.lnk"
@@ -80,6 +80,8 @@ try {
         Copy-Item $PSCommandPath -Destination (Join-Path $installDir 'Install.ps1') -Force
 
         $targetExe = Join-Path $installDir $exeName
+        $fileVer = (Get-Item $targetExe).VersionInfo.ProductVersion
+        if ($fileVer) { $version = $fileVer }
         New-Shortcut -Path $startMenu -Target $targetExe
         if ($Desktop) { New-Shortcut -Path $desktopLnk -Target $targetExe }
 

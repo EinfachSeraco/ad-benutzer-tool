@@ -1,6 +1,10 @@
-# Build-Ergebnisse
+# Build output
 *.exe
+*.msi
+*.wixpdb
 *.zip
+installer/obj/
+installer/bin/
 
-# Lokal geladenes PS2EXE-Modul
+# PS2EXE module downloaded by Build-Exe.ps1
 _modules/
