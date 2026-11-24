@@ -1,0 +1,6 @@
+# Build-Ergebnisse
+*.exe
+*.zip
+
+# Lokal geladenes PS2EXE-Modul
+_modules/
