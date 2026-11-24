@@ -208,14 +208,17 @@ The workflow `.github/workflows/build.yml` runs on Windows for every push and pu
 
 1. Increase `$AppVersion` in `AD-Benutzer-Kopieren.ps1`, for example to `'1.2.0'`.
 2. Add an entry to `CHANGELOG.md`.
-3. Commit, then create and push a matching tag:
+3. Commit and push to `main`.
+4. Create the release in **one** of these ways:
+   - **In the browser, no Git needed:** open **Actions → Build → Run workflow**, choose branch `main`, tick **release**, and click **Run workflow**. The tag `v<AppVersion>` is created automatically.
+   - **With Git:**
+     ```powershell
+     git tag v1.2.0
+     git push origin v1.2.0
+     ```
+     The tag must match `$AppVersion`, otherwise the build fails.
 
-```powershell
-git tag v1.2.0
-git push origin v1.2.0
-```
-
-The workflow then creates a GitHub release with EXE, MSI and ZIP. The tag must match `$AppVersion`, otherwise the build fails.
+After a few minutes the release with EXE, MSI and ZIP appears under **Releases**. If a release with that version already exists, the build stops with an error. Increase `$AppVersion` first.
 
 ## Repository layout
 
