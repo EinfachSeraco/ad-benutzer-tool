@@ -84,7 +84,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Force -DestinationPath "AD-Benutzer-Tool-${{ steps.version.outputs.version }}.zip" -Path `
-            AD-Benutzer-Kopieren.exe, AD-Benutzer-Kopieren.ps1, Install.ps1, README.md, README.de.md, CHANGELOG.md
+            AD-Benutzer-Kopieren.exe, AD-Benutzer-Kopieren.ps1, Install.ps1, README.md, README.de.md, CHANGELOG.md, LICENSE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

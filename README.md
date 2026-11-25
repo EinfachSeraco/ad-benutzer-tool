@@ -22,6 +22,7 @@ A Windows PowerShell tool with a graphical interface (Windows Forms) that create
 - [Repository layout](#repository-layout)
 - [Troubleshooting](#troubleshooting)
 - [Security notes](#security-notes)
+- [License](#license)
 
 ---
 
@@ -230,6 +231,7 @@ Install.ps1                     simple installer/uninstaller without MSI
 installer/AD-Benutzer-Tool.wxs  WiX source for the MSI
 .github/workflows/build.yml     CI build and releases
 README.md / README.de.md        documentation (EN / DE)
+LICENSE                         MIT license
 CHANGELOG.md                    version history
 ```
 
@@ -251,3 +253,9 @@ CHANGELOG.md                    version history
 - Passwords are only kept in memory. When you use **Kopieren**, the password stays in the clipboard. Clear the clipboard afterwards.
 - The EXE only wraps the script, so the source code can be read. Never put secrets into the script.
 - Keep this repository **private** if it contains internal details such as OU names.
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 EinfachSeraco.
+
+The software is provided "as is", without warranty of any kind. Test it in a test environment first. Use in production is at your own risk.

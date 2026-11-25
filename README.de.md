@@ -20,6 +20,7 @@ Ein Windows-PowerShell-Werkzeug mit grafischer Oberfläche (Windows Forms). Es l
 - [Aufbau des Repositorys](#aufbau-des-repositorys)
 - [Fehlerbehebung](#fehlerbehebung)
 - [Sicherheitshinweise](#sicherheitshinweise)
+- [Lizenz](#lizenz)
 
 ---
 
@@ -228,6 +229,7 @@ Install.ps1                     einfacher Installer/Deinstaller ohne MSI
 installer/AD-Benutzer-Tool.wxs  WiX-Quelldatei für das MSI
 .github/workflows/build.yml     automatischer Build und Releases
 README.md / README.de.md        Dokumentation (EN / DE)
+LICENSE                         MIT-Lizenz
 CHANGELOG.md                    Versionshistorie
 ```
 
@@ -249,3 +251,11 @@ CHANGELOG.md                    Versionshistorie
 - Kennwörter liegen nur im Arbeitsspeicher. Mit **Kopieren** landet das Kennwort in der Zwischenablage. Leere sie danach.
 - Die EXE verpackt nur das Skript, der Quellcode lässt sich also auslesen. Trage niemals Geheimnisse ins Skript ein.
 - Halte das Repository **privat**, wenn es interne Angaben wie OU-Namen enthält.
+
+## Lizenz
+
+Veröffentlicht unter der [MIT-Lizenz](LICENSE). Copyright (c) 2026 EinfachSeraco.
+
+Die Software wird „wie besehen“ bereitgestellt, ohne jede Gewährleistung. Teste sie zuerst in einer Testumgebung. Der Einsatz in der Produktivumgebung erfolgt auf eigene Verantwortung.
+
+Maßgeblich ist der englische Lizenztext in der Datei [LICENSE](LICENSE).
